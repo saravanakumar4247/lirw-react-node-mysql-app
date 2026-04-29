@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: booksdb
+    ports:
+      - "3306:3306"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend-app
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - "3200:3200"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: frontend-app
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:3000"
