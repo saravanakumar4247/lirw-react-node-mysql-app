@@ -23,7 +23,7 @@ pipeline {
         }
         stage('Deploy to Docker Server') {
             steps {
-                sshagent(['docker-server-key']) {
+                sshagent(credentials: ['docker-server-key']) {
                     sh '''
                     ssh -o StrictHostKeyChecking=no ubuntu@3.80.41.252 "
                     rm -rf app &&
