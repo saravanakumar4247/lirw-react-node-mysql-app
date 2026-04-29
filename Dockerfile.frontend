@@ -5,7 +5,10 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm install
 
-COPY frontend .
+COPY frontend/ .
+
+# important
+COPY frontend/.env.production .env.production
 
 RUN npm run build
 
