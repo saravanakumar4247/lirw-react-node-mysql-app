@@ -57,19 +57,17 @@ pipeline {
         }
 
         stage('Deploy to Kubernetes') {
-            steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh '''
-                    kubectl apply -f k8s/
-
-                    kubectl rollout restart deployment backend
-                    kubectl rollout restart deployment frontend
-
-                    kubectl rollout status deployment backend
-                    kubectl rollout status deployment frontend
-                    '''
-                }
-            }
+    steps {
+        sshagent(credentials: ['docker-server-key']) {
+            sh '''
+            ssh -o StrictHostKeyChecking=no ubuntu@54.82.3.114 << EOF
+            cd app
+            microk8s kubectl apply -f k8s/
+            microk8s kubectl get pods
+            EOF
+            '''
         }
+    }
+}
     }
 }
