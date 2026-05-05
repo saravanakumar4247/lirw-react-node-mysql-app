@@ -29,6 +29,6 @@ spec:
       containers:
         - name: frontend
           image: app-frontend:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
