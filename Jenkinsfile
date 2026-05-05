@@ -56,14 +56,26 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+       stage('Deploy to Kubernetes') {
     steps {
         sshagent(credentials: ['docker-server-key']) {
             sh '''
             ssh -o StrictHostKeyChecking=no ubuntu@54.82.3.114 << EOF
+
+            # remove old app (optional)
+            rm -rf app
+
+            # clone latest code
+            git clone https://github.com/saravanakumar4247/lirw-react-node-mysql-app.git app
+
             cd app
+
+            # apply kubernetes manifests
             microk8s kubectl apply -f k8s/
+
+            # verify
             microk8s kubectl get pods
+
             EOF
             '''
         }
