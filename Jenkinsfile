@@ -34,8 +34,8 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                docker build -t $REGISTRY/$IMAGE_BACKEND:latest -f Dockerfile.backend .
-                docker build -t $REGISTRY/$IMAGE_FRONTEND:latest -f Dockerfile.frontend .
+                docker build --no-cache -t $REGISTRY/$IMAGE_BACKEND:latest -f Dockerfile.backend .
+                docker build --no-cache -t $REGISTRY/$IMAGE_FRONTEND:latest -f Dockerfile.frontend .
                 '''
             }
         }
