@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: app-backend:latest
+          image: saravanakumar4247/app-backend:latest
           imagePullPolicy: Always
           env:
             - name: DB_HOST
