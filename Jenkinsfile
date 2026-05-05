@@ -1,13 +1,14 @@
 pipeline {
     agent any
+
     environment {
-        DEPLOY_HOST = "3.80.41.252"
-        DEPLOY_USER = "ubuntu"
-        IMAGE_NAME = "three-tier-app"
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        K8S_NAMESPACE = "default"
+        REGISTRY = "saravana4247"   // 🔴 CHANGE THIS
+        IMAGE_BACKEND = "app-backend"
+        IMAGE_FRONTEND = "app-frontend"
     }
+
     stages {
+
         stage('Clone Code') {
             steps {
                 git branch: 'main',
@@ -20,42 +21,37 @@ pipeline {
                 script {
                     def scannerHome = tool 'sonar-scanner'
                     withSonarQubeEnv('sonar') {
-                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=three-tier-app -Dsonar.sources=."
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to Docker Server') {
-            steps {
-                sshagent(credentials: ['docker-server-key']) {
-                    sh '''
-                    ssh -tt -o StrictHostKeyChecking=no ubuntu@3.80.41.252 << EOF
-                    whoami
-                    docker --version
-                    docker compose version
-                    rm -rf app
-                    git clone https://github.com/saravanakumar4247/lirw-react-node-mysql-app.git app
-                    cd app
-                    docker compose down || true
-                    docker compose up -d --build
-                    exit
-EOF
-                    '''
-                }
-            }
-        }
-
-        stage('Build & Push Docker Image') {
-            steps {
-                script {
-                    withDockerRegistry(credentialsId: 'dockerhub-creds', url: '') {
                         sh """
-                            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                            docker tag ${IMAGE_NAME}:${IMAGE_TAG} your-dockerhub-username/${IMAGE_NAME}:${IMAGE_TAG}
-                            docker push your-dockerhub-username/${IMAGE_NAME}:${IMAGE_TAG}
+                        ${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=three-tier-app \
+                        -Dsonar.sources=.
                         """
                     }
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                sh '''
+                docker build -t $REGISTRY/$IMAGE_BACKEND:latest -f Dockerfile.backend .
+                docker build -t $REGISTRY/$IMAGE_FRONTEND:latest -f Dockerfile.frontend .
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    docker push $REGISTRY/$IMAGE_BACKEND:latest
+                    docker push $REGISTRY/$IMAGE_FRONTEND:latest
+                    '''
                 }
             }
         }
@@ -64,26 +60,16 @@ EOF
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
-                        # Apply all manifests inside k8s/ folder
-                        kubectl apply -f k8s/
+                    kubectl apply -f k8s/
 
-                        # Wait for backend rollout to complete
-                        kubectl rollout status deployment/backend
+                    kubectl rollout restart deployment backend
+                    kubectl rollout restart deployment frontend
 
-                        # Wait for frontend rollout to complete
-                        kubectl rollout status deployment/frontend
+                    kubectl rollout status deployment backend
+                    kubectl rollout status deployment frontend
                     '''
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Pipeline succeeded! App deployed to Kubernetes."
-        }
-        failure {
-            echo "❌ Pipeline failed! Check the logs above."
         }
     }
 }
