@@ -3,6 +3,9 @@ pipeline {
     environment {
         DEPLOY_HOST = "3.80.41.252"
         DEPLOY_USER = "ubuntu"
+        IMAGE_NAME = "three-tier-app"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        K8S_NAMESPACE = "default"
     }
     stages {
         stage('Clone Code') {
@@ -11,6 +14,7 @@ pipeline {
                 url: 'https://github.com/saravanakumar4247/lirw-react-node-mysql-app.git'
             }
         }
+
         stage('SonarQube Scan') {
             steps {
                 script {
@@ -21,6 +25,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to Docker Server') {
             steps {
                 sshagent(credentials: ['docker-server-key']) {
@@ -39,6 +44,46 @@ EOF
                     '''
                 }
             }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'dockerhub-creds', url: '') {
+                        sh """
+                            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                            docker tag ${IMAGE_NAME}:${IMAGE_TAG} your-dockerhub-username/${IMAGE_NAME}:${IMAGE_TAG}
+                            docker push your-dockerhub-username/${IMAGE_NAME}:${IMAGE_TAG}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        # Apply all manifests inside k8s/ folder
+                        kubectl apply -f k8s/
+
+                        # Wait for backend rollout to complete
+                        kubectl rollout status deployment/backend
+
+                        # Wait for frontend rollout to complete
+                        kubectl rollout status deployment/frontend
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline succeeded! App deployed to Kubernetes."
+        }
+        failure {
+            echo "❌ Pipeline failed! Check the logs above."
         }
     }
 }
